@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 240" fill="none" aria-label="0xkey">
+  <rect x="0" y="0" width="240" height="240" rx="40" fill="#111111"/>
+  <rect x="71" y="71" width="98" height="98" rx="22" stroke="white" stroke-width="14"/>
+  <path d="M103 97L137 143M137 97L103 143" stroke="white" stroke-width="14" stroke-linecap="round"/>
+  <text x="310" y="154" fill="#ffffff" font-family="Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="104" font-weight="800" letter-spacing="-0.06em">0xkey</text>
+</svg>

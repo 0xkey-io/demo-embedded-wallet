@@ -1,0 +1,19 @@
+import { ReactNode } from "react"
+
+interface FeatureProps {
+  title: string
+  icon: ReactNode
+  children: ReactNode
+}
+
+export default function Feature({ title, icon, children }: FeatureProps) {
+  return (
+    <div className="grid grid-cols-[1fr_8fr] items-start">
+      <div className="mt-[3px]">{icon}</div>
+      <div className="space-y-2">
+        <h2 className="text-xl leading-none font-bold">{title}</h2>
+        <div>{children}</div>
+      </div>
+    </div>
+  )
+}
