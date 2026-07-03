@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useWallets } from "@/providers/wallet-provider"
 import { useZeroXKey } from "@0xkey-io/react-wallet-kit"
-import { ArrowLeft, Mail } from "lucide-react"
+import { ArrowLeft, Mail, ShieldCheck } from "lucide-react"
 import { useLocalStorage } from "usehooks-ts"
 
 import { PreferredWallet, Wallet } from "@/types/0xkey"
@@ -15,7 +15,8 @@ import { Passkeys } from "@/components/passkeys"
 
 export default function Settings() {
   const router = useRouter()
-  const { user } = useZeroXKey()
+  const { user, handleVerifyEnclave } = useZeroXKey()
+  const [verifyError, setVerifyError] = useState<string | undefined>()
   const [preferredWalletSetting, setPreferredWalletSetting] =
     useLocalStorage<PreferredWallet>(PREFERRED_WALLET_KEY, {
       userId: "",
@@ -68,6 +69,53 @@ export default function Settings() {
               </Card>
             </div>
             <Passkeys />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold sm:text-2xl">
+              Security
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <h3 className="mb-2 font-semibold sm:text-lg">
+                Remote attestation
+              </h3>
+              <p className="text-muted-foreground mb-3 text-xs sm:text-sm">
+                Verify that the signer enclave currently handling your wallet
+                is running code approved by 0xkey&apos;s quorum multi-sig —
+                not something &quot;trust us&quot;, but a cryptographically
+                verifiable check you can run yourself, right now.
+              </p>
+              <Card className="bg-card flex items-center justify-between gap-2 rounded-md p-3">
+                <div className="flex items-center space-x-3">
+                  <ShieldCheck className="text-muted-foreground h-4 w-4 sm:h-5 sm:w-5" />
+                  <span>Signer enclave</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    setVerifyError(undefined)
+                    try {
+                      await handleVerifyEnclave({ appName: "signer" })
+                    } catch (err) {
+                      setVerifyError(
+                        err instanceof Error ? err.message : String(err)
+                      )
+                    }
+                  }}
+                >
+                  Verify enclave
+                </Button>
+              </Card>
+              {verifyError && (
+                <p className="text-destructive mt-2 text-xs">
+                  {verifyError}
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
