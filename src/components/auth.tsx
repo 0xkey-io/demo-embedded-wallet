@@ -1,10 +1,10 @@
 "use client"
 
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/providers/auth-provider"
+import { OtpType, useZeroXKey } from "@0xkey-io/react-wallet-kit"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useZeroXKey } from "@0xkey-io/react-wallet-kit"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import * as z from "zod"
@@ -50,6 +50,7 @@ const formSchema = z.object({
 function AuthContent() {
   const {
     httpClient,
+    initOtp,
     loginWithPasskey,
     user,
     loginOrSignupWithWallet,
@@ -57,6 +58,9 @@ function AuthContent() {
   } = useZeroXKey()
   const { state } = useAuth()
   const [loadingAction, setLoadingAction] = useState<string | null>(null)
+  // Each InitOtp issues a distinct challenge and email, so a double click
+  // leaves the user holding a code that does not match the page's otpId.
+  const authInFlight = useRef(false)
   const [walletDialogOpen, setWalletDialogOpen] = useState(false)
 
   const router = useRouter()
@@ -78,6 +82,8 @@ function AuthContent() {
   }, [searchParams])
 
   const handlePasskeyLogin = async (email: Email) => {
+    if (authInFlight.current) return
+    authInFlight.current = true
     setLoadingAction("passkey")
     try {
       if (!httpClient) {
@@ -96,45 +102,10 @@ function AuthContent() {
       } else {
         // If the user's account does not exist, we assume they have not created a passkey
         // and we need to verify their email via OTP and then sign them up
-        const init = await httpClient.proxyInitOtp({
-          otpType: "OTP_TYPE_EMAIL",
+        const init = await initOtp({
+          otpType: OtpType.Email,
           contact: email,
         })
-
-        if (init?.otpId && init?.otpEncryptionTargetBundle) {
-          window.sessionStorage.setItem(
-            otpBundleStorageKey(init.otpId),
-            init.otpEncryptionTargetBundle
-          )
-          router.push(
-            `/verify-email?id=${encodeURIComponent(init.otpId)}&email=${encodeURIComponent(
-              email
-            )}&type=passkey`
-          )
-        } else {
-          toast.error("Could not start email verification. Please try again.")
-        }
-      }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Passkey flow failed"
-      toast.error(message)
-    } finally {
-      setLoadingAction(null)
-    }
-  }
-
-  const handleEmailLogin = async (email: Email) => {
-    setLoadingAction("email")
-    try {
-      if (!httpClient) {
-        toast.error("Wallet client not ready. Please refresh and try again.")
-        return
-      }
-      const init = await httpClient.proxyInitOtp({
-        otpType: "OTP_TYPE_EMAIL",
-        contact: email,
-      })
-      if (init?.otpId && init?.otpEncryptionTargetBundle) {
         window.sessionStorage.setItem(
           otpBundleStorageKey(init.otpId),
           init.otpEncryptionTargetBundle
@@ -142,15 +113,42 @@ function AuthContent() {
         router.push(
           `/verify-email?id=${encodeURIComponent(init.otpId)}&email=${encodeURIComponent(
             email
-          )}&type=email`
+          )}&type=passkey`
         )
-      } else {
-        toast.error("Could not send verification code. Please try again.")
       }
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Email verification failed"
+      const message = e instanceof Error ? e.message : "Passkey flow failed"
       toast.error(message)
     } finally {
+      authInFlight.current = false
+      setLoadingAction(null)
+    }
+  }
+
+  const handleEmailLogin = async (email: Email) => {
+    if (authInFlight.current) return
+    authInFlight.current = true
+    setLoadingAction("email")
+    try {
+      const init = await initOtp({
+        otpType: OtpType.Email,
+        contact: email,
+      })
+      window.sessionStorage.setItem(
+        otpBundleStorageKey(init.otpId),
+        init.otpEncryptionTargetBundle
+      )
+      router.push(
+        `/verify-email?id=${encodeURIComponent(init.otpId)}&email=${encodeURIComponent(
+          email
+        )}&type=email`
+      )
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Email verification failed"
+      toast.error(message)
+    } finally {
+      authInFlight.current = false
       setLoadingAction(null)
     }
   }
@@ -225,8 +223,8 @@ function AuthContent() {
               <LoadingButton
                 type="submit"
                 className="w-full font-semibold"
-                disabled={!form.formState.isValid}
-                loading={state.loading && loadingAction === "passkey"}
+                disabled={!form.formState.isValid || loadingAction !== null}
+                loading={loadingAction === "passkey"}
                 onClick={() =>
                   handlePasskeyLogin(form.getValues().email as Email)
                 }
@@ -238,11 +236,11 @@ function AuthContent() {
                 type="button"
                 variant="outline"
                 className="w-full font-semibold"
-                disabled={!form.formState.isValid}
+                disabled={!form.formState.isValid || loadingAction !== null}
                 onClick={() =>
                   handleEmailLogin(form.getValues().email as Email)
                 }
-                loading={state.loading && loadingAction === "email"}
+                loading={loadingAction === "email"}
               >
                 Continue with email
               </LoadingButton>
