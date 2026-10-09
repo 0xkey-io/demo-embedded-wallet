@@ -10,6 +10,9 @@ const {
   NEXT_PUBLIC_APP_URL,
   NEXT_PUBLIC_EXPORT_IFRAME_URL,
   NEXT_PUBLIC_IMPORT_IFRAME_URL,
+  NEXT_PUBLIC_RP_ID,
+  NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID,
+  NEXT_PUBLIC_APPLE_OAUTH_CLIENT_ID,
 } = env
 
 export const customWallet = {
@@ -31,10 +34,15 @@ export const zeroXKeyConfig: ZeroXKeyProviderConfig = {
   apiBaseUrl: NEXT_PUBLIC_BASE_URL,
   exportIframeUrl: NEXT_PUBLIC_EXPORT_IFRAME_URL,
   importIframeUrl: NEXT_PUBLIC_IMPORT_IFRAME_URL,
+  passkeyConfig: {
+    rpId: NEXT_PUBLIC_RP_ID || undefined,
+  },
   auth: {
     autoRefreshSession: true,
     oauthConfig: {
       oauthRedirectUri: NEXT_PUBLIC_APP_URL,
+      googleClientId: NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID || undefined,
+      appleClientId: NEXT_PUBLIC_APPLE_OAUTH_CLIENT_ID || undefined,
     },
     createSuborgParams: {
       passkeyAuth: {

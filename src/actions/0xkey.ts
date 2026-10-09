@@ -11,14 +11,9 @@ import { decode, JwtPayload } from "jsonwebtoken"
 import { Address, getAddress, parseEther } from "viem"
 
 import { env } from "@/env.mjs"
-import {
-  Attestation,
-  Email,
-  OauthProviderParams,
-  Wallet,
-} from "@/types/0xkey"
-import { siteConfig } from "@/config/site"
+import { Attestation, Email, OauthProviderParams, Wallet } from "@/types/0xkey"
 import { zeroXKeyConfig } from "@/config/0xkey"
+import { siteConfig } from "@/config/site"
 import { getZeroXKeyWalletClient } from "@/lib/web3"
 
 import { getTransactions } from "./web3"
@@ -269,34 +264,6 @@ export const verifyOtp = async ({
   })
 
   return authResponse
-}
-
-export const otpLogin = async ({
-  publicKey,
-  verificationToken,
-  email,
-}: {
-  publicKey: string
-  verificationToken: string
-  email: Email
-}) => {
-  const subOrgId = await getSubOrgIdByEmail(email)
-
-  if (!subOrgId) {
-    throw new Error("Could not find suborg by email")
-  }
-
-  const sessionResponse = await client.otpLogin({
-    verificationToken,
-    publicKey,
-    organizationId: subOrgId,
-  })
-
-  return {
-    userId: sessionResponse.activity.votes[0]?.userId,
-    session: sessionResponse.session,
-    organizationId: subOrgId,
-  }
 }
 
 type EmailParam = { email: Email }
