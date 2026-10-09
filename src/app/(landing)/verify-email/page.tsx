@@ -36,7 +36,14 @@ export default function VerifyEmailPage() {
 function VerifyEmailContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { signUpWithPasskey, verifyOtp, completeOtp } = useZeroXKey()
+  const {
+    createApiKeyPair,
+    createPasskey,
+    verifyOtp,
+    loginWithOtp,
+    signUpWithOtp,
+    completeOtp,
+  } = useZeroXKey()
 
   const otpId = searchParams.get("id") || ""
   const email = searchParams.get("email") || ""
@@ -60,29 +67,51 @@ function VerifyEmailContent() {
         otpBundleStorageKey(otpId)
       )
       if (!otpEncryptionTargetBundle) {
-        throw new Error("OTP encryption bundle not found. Please restart sign in.")
+        throw new Error(
+          "OTP encryption bundle not found. Please restart sign in."
+        )
       }
 
       if (type === "passkey") {
-        const { verificationToken } = await verifyOtp({
+        // The verification token is bound to this key, and signup must carry a
+        // client signature from it over the exact credentials being registered.
+        const publicKey = await createApiKeyPair()
+        const { subOrganizationId, verificationToken } = await verifyOtp({
           otpId,
           otpCode: code,
           otpEncryptionTargetBundle,
           contact: email,
           otpType: OtpType.Email,
+          publicKey,
         })
         if (!verificationToken) {
           toast.error("Verification failed. Try again.")
           return
         }
 
-        await signUpWithPasskey({
-          createSubOrgParams: {
-            customWallet,
+        if (subOrganizationId) {
+          await loginWithOtp({ verificationToken, publicKey })
+        } else {
+          const passkeyName = `${window.location.hostname}-${Date.now()}`
+          const passkey = await createPasskey({ name: passkeyName })
+          await signUpWithOtp({
             verificationToken,
-            userEmail: email,
-          },
-        })
+            contact: email,
+            otpType: OtpType.Email,
+            publicKey,
+            createSubOrgParams: {
+              customWallet,
+              userEmail: email,
+              authenticators: [
+                {
+                  authenticatorName: passkeyName,
+                  challenge: passkey.encodedChallenge,
+                  attestation: passkey.attestation,
+                },
+              ],
+            },
+          })
+        }
         window.sessionStorage.removeItem(otpBundleStorageKey(otpId))
         router.replace("/dashboard")
       } else if (type === "email") {
@@ -110,7 +139,19 @@ function VerifyEmailContent() {
     } finally {
       setSubmitting(false)
     }
-  }, [otpId, email, type, code, signUpWithPasskey, verifyOtp, completeOtp, router])
+  }, [
+    otpId,
+    email,
+    type,
+    code,
+    createApiKeyPair,
+    createPasskey,
+    verifyOtp,
+    loginWithOtp,
+    signUpWithOtp,
+    completeOtp,
+    router,
+  ])
 
   return (
     <main className="flex w-full flex-col items-center justify-center">
