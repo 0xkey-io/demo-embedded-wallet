@@ -8,6 +8,11 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+
+# locally packed sdk-js tarballs (scripts/use-local-sdk.sh)
+/.local-sdk/
 
 # next.js
 /.next/
