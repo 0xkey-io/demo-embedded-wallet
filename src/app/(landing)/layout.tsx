@@ -2,6 +2,7 @@ import { Toaster } from "sonner"
 
 import { Aurora } from "@/components/aurora"
 import { InverseAuthGuard } from "@/components/auth-guard"
+import { CaptchaDiagnostics } from "@/components/captcha-diagnostics"
 import Features from "@/components/features"
 
 interface LandingLayoutProps {
@@ -24,6 +25,7 @@ export default function LandingLayout({ children }: LandingLayoutProps) {
             <Toaster />
           </div>
         </div>
+        <CaptchaDiagnostics />
       </main>
     </InverseAuthGuard>
   )
