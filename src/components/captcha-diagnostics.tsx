@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import * as zeroXKeyCore from "@0xkey-io/core"
+import { useZeroXKey } from "@0xkey-io/react-wallet-kit"
 
 import { zeroXKeyConfig } from "@/config/0xkey"
 
@@ -70,6 +71,7 @@ export function CaptchaDiagnostics() {
 }
 
 function CaptchaDiagnosticsPanel() {
+  const { clientState } = useZeroXKey()
   const [state, setState] = useState<ClientParamsState>({ status: "loading" })
 
   const refresh = useCallback(async () => {
@@ -86,6 +88,7 @@ function CaptchaDiagnosticsPanel() {
       data-testid="captcha-diagnostics"
       data-captcha-status={state.status}
       data-sdk-captcha={sdkSupportsCaptcha ? "yes" : "no"}
+      data-client-state={clientState ?? "loading"}
       className="bg-background/95 fixed bottom-3 left-3 z-50 max-w-xs rounded-md border p-3 text-xs shadow-sm"
     >
       <div className="mb-1 flex items-center justify-between gap-2 font-semibold">
@@ -112,6 +115,8 @@ function CaptchaDiagnosticsPanel() {
             <dd className="break-all">{maskSiteKey(state.siteKey)}</dd>
           </>
         )}
+        <dt className="text-muted-foreground">Wallet Kit</dt>
+        <dd>{clientState ?? "loading"}</dd>
         <dt className="text-muted-foreground">SDK Captcha</dt>
         <dd>{sdkSupportsCaptcha ? "supported" : "not in installed SDK"}</dd>
       </dl>

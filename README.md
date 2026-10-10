@@ -14,6 +14,7 @@ Use it to explore auth, wallet management, signing, and transfers—or fork it a
 - [Auth & wallet flows](#auth--wallet-flows)
 - [Features](#features)
 - [0xkey integration](#0xkey-integration)
+- [Captcha (Cloudflare Turnstile)](#captcha-cloudflare-turnstile)
 - [Troubleshooting](#troubleshooting)
 - [Target network](#target-network)
 - [Project structure](#project-structure)
@@ -390,6 +391,74 @@ Dependencies are published as `@0xkey-io/*` (currently `^0.1.1`). **SDK exports 
 2. Wraps it in a `WalletClient` on Sepolia (Alchemy RPC)
 3. Used for user sends (browser client) and faucet (server client)
 
+## Captcha (Cloudflare Turnstile)
+
+Captcha is switched on per Auth Proxy config, not in this app. On every protected attempt a Captcha-capable Wallet Kit reads `POST /v1/wallet_kit_client_params` from the Auth Proxy. If the response has a `turnstileSiteKey`, Wallet Kit renders the Turnstile challenge itself (up to 120 s) and sends the resulting token as `X-Captcha-Token`, plus the public `captcha_config_id` query parameter, on exactly four routes: `/v1/otp_init`, `/v1/otp_init_v2`, `/v1/signup` and `/v1/signup_v2`.
+
+- **Challenged:** sending an OTP, and new signups without an OTP proof (wallet, passkey, OAuth popup and redirect).
+- **Never challenged:** logins (OTP, passkey, wallet, OAuth) and account lookups.
+- **OTP-verified signup:** `completeOtp` (the "Continue with email" path) signs up with the OTP verification token and sends no Captcha token. The new-passkey path calls `signUpWithOtp`, which in the current SDK still runs a challenge; the Auth Proxy exempts signups carrying a valid verification token.
+- **Captcha off:** no site key means no widget and no header; the demo behaves exactly as before.
+
+This demo needs no extra provider config. It sets no Content Security Policy; if you add one, allow `https://challenges.cloudflare.com` in `script-src`, `frame-src` and `connect-src`.
+
+> **SDK version:** Captcha needs an SDK release that includes it. The `@0xkey-io/*` versions on npm today (up to `react-wallet-kit` 0.3.0 / `core` 0.2.0) do not, so with Captcha **enabled** their OTP and signup requests are rejected for a missing token. Until a Captcha-capable release is published and `package.json` is bumped, test against a local sdk-js build as described below.
+
+### Diagnostics panel (dev only)
+
+`pnpm dev` shows a small panel in the bottom-left of the auth pages. It reads the same public client params and shows whether a site key was returned (Cloudflare test keys are named, other keys are masked), whether the Wallet Kit client is ready, and whether the installed SDK supports Captcha. It never reads or prints Captcha tokens, and it is not rendered in production builds.
+
+### Test locally against an unreleased sdk-js
+
+1. Build sdk-js (any checkout, e.g. a worktree of `main`):
+
+   ```bash
+   cd /path/to/sdk-js
+   pnpm install --frozen-lockfile
+   pnpm exec turbo --filter "@0xkey-io/react-wallet-kit..." \
+     --filter "@0xkey-io/viem..." --filter "@0xkey-io/sdk-server..." build
+   ```
+
+2. Point the demo at packed tarballs of that build:
+
+   ```bash
+   scripts/use-local-sdk.sh /path/to/sdk-js
+   ```
+
+   This packs every `@0xkey-io/*` package the demo needs into `.local-sdk/` (gitignored), backs up `package.json` and `pnpm-lock.yaml`, writes `pnpm.overrides` to the tarballs and reinstalls. **Do not commit `package.json` or `pnpm-lock.yaml` while it is active**; CI would fail anyway because the tarballs are not in the repo.
+
+3. Run the end-to-end tests:
+
+   ```bash
+   pnpm exec playwright install chromium   # once; or set PLAYWRIGHT_CHROMIUM_CHANNEL=chrome
+   pnpm test:e2e
+   ```
+
+   The tests start `next dev` on port 3250 and a mock Auth Proxy on port 3293 (override with `E2E_DEMO_PORT` / `E2E_MOCK_AUTH_PROXY_PORT`). The mock either returns no site key or Cloudflare's always-pass test key `1x00000000000000000000AA`; the real Turnstile script loads from `challenges.cloudflare.com`, so the browser needs network access. They check that:
+
+   - with no site key, no widget renders and OTP init and wallet signup carry no `X-Captcha-Token`;
+   - with the test key, the widget renders and OTP init and new wallet signup carry `X-Captcha-Token` and `captcha_config_id`;
+   - OTP-verified signup, OTP login and existing-wallet login carry no token.
+
+   With the npm SDK installed, the Captcha-on tests are skipped.
+
+4. Restore the npm versions when done:
+
+   ```bash
+   scripts/use-local-sdk.sh --restore
+   ```
+
+For manual checks, run `pnpm dev` with your own `.env.local` while the local SDK is active. To try the widget without a real key, point `NEXT_PUBLIC_AUTH_PROXY_URL` at an Auth Proxy whose config returns a [Cloudflare test site key](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
+
+### Test on staging (once Captcha is enabled there)
+
+1. Set `NEXT_PUBLIC_AUTH_PROXY_URL` and `NEXT_PUBLIC_AUTH_PROXY_ID` to the staging Auth Proxy and a config with Captcha enabled, and use a Captcha-capable SDK (local build or a published release).
+2. Open the app; the diagnostics panel should show **site key returned** and **SDK Captcha: supported**.
+3. Send an email OTP: the Turnstile challenge appears before the code is sent. In DevTools → Network, `otp_init_v2` has an `X-Captcha-Token` request header and `captcha_config_id` in the URL. Check presence only; do not copy token values into tickets or logs.
+4. Sign up a new wallet or OAuth user: the challenge appears once before `signup`.
+5. Log in with an existing account: no challenge and no `X-Captcha-Token` header.
+6. Switch to a config with Captcha off: the panel shows **no site key** and every flow works without a challenge.
+
 ## Troubleshooting
 
 | Issue | Symptoms | What to check |
@@ -401,6 +470,7 @@ Dependencies are published as `@0xkey-io/*` (currently `^0.1.1`). **SDK exports 
 | Faucet | “Unable to drip”, funding errors | Warchest org funded; all `ZEROXKEY_WARCHEST_*` + `WARCHEST_PRIVATE_KEY_ID` set; one drip per address |
 | Alchemy / price | Zero balance, missing USD | `NEXT_PUBLIC_ALCHEMY_API_KEY`, `COINGECKO_API_KEY` |
 | Facebook | Popup blocked, token errors | Facebook env vars + `FACEBOOK_SECRET_SALT`; allow popups; redirect URI includes `/oauth-callback/facebook` if using redirect mode |
+| Captcha | OTP/signup rejected, "security check" never finishes | Diagnostics panel: site key returned but SDK lacks Captcha support → use a Captcha-capable SDK; Turnstile script blocked by CSP, ad blocker or network → allow `https://challenges.cloudflare.com` |
 | Wallet client not ready | Buttons disabled on landing | Auth Proxy reachable (local: trust Caddy CA or use `http://localhost:8082` for proxy URL) |
 
 ## Target network
@@ -455,3 +525,5 @@ Entry points for forking: `src/components/auth.tsx`, `src/config/0xkey.ts`, `src
 | `pnpm lint` | ESLint |
 | `pnpm format` | Prettier write |
 | `pnpm format:check` | Prettier check |
+| `pnpm test:e2e` | Playwright Captcha e2e against a mock Auth Proxy ([details](#test-locally-against-an-unreleased-sdk-js)) |
+| `scripts/use-local-sdk.sh <sdk-js>` / `--restore` | Use / stop using locally packed sdk-js packages |
