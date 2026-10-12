@@ -2,6 +2,11 @@ import { useState } from "react"
 import { useZeroXKey } from "@0xkey-io/react-wallet-kit"
 import { toast } from "sonner"
 
+import {
+  PASSKEY_NAME_RULE,
+  passkeyNameError,
+  passkeyNameParams,
+} from "@/lib/passkey-name"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -22,23 +27,32 @@ export default function AddPasskey({
 
   const [open, setOpen] = useState(false)
   const [passkeyName, setPasskeyName] = useState("")
+  const [adding, setAdding] = useState(false)
+  const nameError = passkeyNameError(passkeyName)
 
   const _handleAddPasskey = async () => {
-    if (!user) {
+    if (!user || nameError) {
       return
     }
 
-    const [authenticatorId] = await handleAddPasskey({
-      name: passkeyName,
-      displayName: passkeyName,
-      userId: user?.userId,
-    })
+    setAdding(true)
+    try {
+      const [authenticatorId] = await handleAddPasskey({
+        ...passkeyNameParams(passkeyName),
+        userId: user?.userId,
+      })
 
-    if (authenticatorId) {
-      toast.success("Passkey added!")
-      onPasskeyAdded(authenticatorId)
+      if (authenticatorId) {
+        toast.success("Passkey added!")
+        onPasskeyAdded(authenticatorId)
+      }
+      setOpen(false)
+      setPasskeyName("")
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to add passkey")
+    } finally {
+      setAdding(false)
     }
-    setOpen(false)
   }
 
   return (
@@ -52,7 +66,8 @@ export default function AddPasskey({
         <DialogHeader>
           <DialogTitle className="text-left">Add Passkey</DialogTitle>
           <DialogDescription className="text-left">
-            Help identify your passkey by giving it a unique name.
+            Help identify your passkey by giving it a unique name, or leave it
+            blank to use a generated one.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -65,17 +80,29 @@ export default function AddPasskey({
             </label>
             <Input
               id="passkey-name"
-              placeholder="Type a name"
+              placeholder="e.g. MacBook Touch ID"
               value={passkeyName}
+              aria-invalid={!!nameError}
+              aria-describedby="passkey-name-hint"
               onChange={(e) => setPasskeyName(e.target.value)}
             />
+            <p
+              id="passkey-name-hint"
+              className={
+                nameError
+                  ? "text-destructive text-left text-xs"
+                  : "text-muted-foreground text-left text-xs"
+              }
+            >
+              {nameError ?? PASSKEY_NAME_RULE}
+            </p>
           </div>
         </div>
         <div className="flex justify-between">
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={_handleAddPasskey} disabled={!passkeyName}>
+          <Button onClick={_handleAddPasskey} disabled={!!nameError || adding}>
             Add Passkey
           </Button>
         </div>
