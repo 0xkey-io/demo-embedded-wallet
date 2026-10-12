@@ -33,3 +33,5 @@ jobs:
         run: pnpm exec tsc --noEmit --incremental false
       - name: Lint source
         run: pnpm exec eslint .
+      - name: Unit tests
+        run: pnpm run test:unit

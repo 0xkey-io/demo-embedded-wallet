@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "format": "pnpm prettier ./src --write",
     "format:check": "pnpm prettier ./src --check",
+    "test:unit": "node --experimental-strip-types --test \"src/**/*.test.ts\"",
     "test:e2e": "playwright test"
   },
   "dependencies": {
