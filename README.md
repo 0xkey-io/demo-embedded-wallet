@@ -42,7 +42,7 @@ Use it to explore auth, wallet management, signing, and transfers—or fork it a
    pnpm dev
    ```
 
-> **0xkey monorepo:** From the repo root, `./local-dev.sh start-demo-embedded-wallet` starts this app on port `3200` with the local stack (Auth Proxy, API gateway, etc.). See the main repo’s local-dev docs for HTTPS subdomains such as `demo.0xkey.com`.
+> **0xkey monorepo:** From the repo root, `./local-dev.sh start-demo-embedded-wallet` starts this app on port `3200` with the local stack (Auth Proxy, API gateway, etc.). See the main repo’s local-dev docs for HTTPS subdomains such as `demo.0xkey.localhost`.
 
 ## Configuration
 
