@@ -50,7 +50,7 @@ Environment variables are validated at startup by [`@t3-oss/env-nextjs`](https:/
 
 For CI or local builds without credentials, set `SKIP_ENV_VALIDATION=1` (used by `pnpm build:local`).
 
-Production defaults in `.env.example` point at **0xkey.io** (`https://api.0xkey.io`, `https://auth.0xkey.io`).
+Production defaults in `.env.example` point at **0xkey.io** (`https://api.0xkey.io`, `https://authproxy.0xkey.io`).
 
 ### 0xkey (required)
 
