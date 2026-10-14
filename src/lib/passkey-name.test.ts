@@ -9,7 +9,7 @@ describe("passkeyNameError", () => {
       "MacBook Touch ID",
       "yubikey_5c-nfc",
       "work/laptop:1",
-      "ZeroXKey Passkey-1760252400000",
+      "0xkey Passkey-1760252400000",
       "v1.2",
       "x".repeat(64),
     ]) {
